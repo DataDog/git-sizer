@@ -87,33 +87,49 @@ func buildScopeMetrics(metrics []Metric, commonAttrs []attribute.KeyValue, now t
 
 		attrs := make([]attribute.KeyValue, len(commonAttrs))
 		copy(attrs, commonAttrs)
-
-		concernLevel := m.LevelOfConcern
-		if concernLevel > 30 {
-			concernLevel = 50
-		}
-		attrs = append(attrs,
-			attribute.Float64("concern_level", concernLevel),
-		)
-
 		attrSet := attribute.NewSet(attrs...)
 
-		dataPoint := metricdata.DataPoint[int64]{
+		// Value metric (raw count or size in bytes)
+		valueDataPoint := metricdata.DataPoint[int64]{
 			Attributes: attrSet,
 			StartTime:  now,
 			Time:       now,
 			Value:      int64(m.Value),
 		}
 
-		gaugeData := metricdata.Gauge[int64]{
-			DataPoints: []metricdata.DataPoint[int64]{dataPoint},
+		valueGauge := metricdata.Gauge[int64]{
+			DataPoints: []metricdata.DataPoint[int64]{valueDataPoint},
 		}
 
 		metricData = append(metricData, metricdata.Metrics{
 			Name:        metricName,
 			Description: m.Description,
 			Unit:        m.Unit,
-			Data:        gaugeData,
+			Data:        valueGauge,
+		})
+
+		// Concern level metric (number of stars)
+		concernLevel := int64(m.LevelOfConcern)
+		if concernLevel > 30 {
+			concernLevel = 50
+		}
+
+		concernDataPoint := metricdata.DataPoint[int64]{
+			Attributes: attrSet,
+			StartTime:  now,
+			Time:       now,
+			Value:      concernLevel,
+		}
+
+		concernGauge := metricdata.Gauge[int64]{
+			DataPoints: []metricdata.DataPoint[int64]{concernDataPoint},
+		}
+
+		metricData = append(metricData, metricdata.Metrics{
+			Name:        fmt.Sprintf("git_sizer.%s.concern_level", m.Name),
+			Description: fmt.Sprintf("Level of concern for %s (number of stars)", m.Description),
+			Unit:        "{stars}",
+			Data:        concernGauge,
 		})
 	}
 
