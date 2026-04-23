@@ -2,6 +2,8 @@ module github.com/github/git-sizer
 
 go 1.21
 
+toolchain go1.26.2
+
 require (
 	github.com/cli/safeexec v1.0.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
