@@ -8,9 +8,14 @@ variables:
 
 stages: [build]
 
+test-app:
+  image: ${GO_IMAGE}
+  tags: ["arch:arm64"]
+  script: go test -race -timeout 60s ./...
+
 build-app:
   image: ${GO_IMAGE}
-  tags: ["${ARCH}"]
+  tags: ["arch:${ARCH}"]
   script: 
     - mkdir bin/
     - go build -mod=readonly -o bin/git-sizer-linux-${ARCH}
@@ -43,7 +48,7 @@ build-image:
     - IMAGE_DIGEST=$(jq -r '."containerimage.digest"' ${METADATA_FILE})
     - echo "IMAGE_DIGEST=${IMAGE_DIGEST}" > build.env
     - echo "VERSION=${VERSION}" >> build.env  
-  tags: ["arm64"]
+  tags: ["arch:arm64"]
   needs:
     - build-app ["arm64"]
     - build-app ["amd64"]
