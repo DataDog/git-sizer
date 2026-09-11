@@ -1,0 +1,49 @@
+variables:
+  GIT_DEPTH: 1
+  GIT_BASE_BRANCH: master
+  REGISTRY: registry.ddbuild.io
+  GO_IMAGE: ${REGISTRY}/images/go:1.26.6-resolute
+  DOCKER_IMAGE: ${REGISTRY}/images/docker:29.4.0-noble
+  SERVICE_IMAGE: ${REGISTRY}/images/base/gbi-ubuntu_2404:release
+
+stages: [build]
+
+build-app:
+  image: ${GO_IMAGE}
+  tags: ["${ARCH}"]
+  script: 
+    - mkdir bin/
+    - go build -mod=readonly -o bin/git-sizer-linux-${ARCH}
+  parallel:
+    matrix:
+      - ARCH:
+          - arm64
+          - amd64
+  artifacts:
+    paths:
+      - bin/git-sizer-linux-${ARCH}
+
+build-image:
+  image: ${DOCKER_IMAGE}
+  id_tokens:
+    DDSIGN_ID_TOKEN:
+      aud: image-integrity
+    DD_ATTEST_ID_TOKEN:
+      aud: dd-attest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $DDCI_DEFAULT_BRANCH 
+  script:
+    - export REGISTRY_PATH="registry.ddbuild.io/git-sizer"
+    - export BRANCH_VERSION="${CI_COMMIT_REF_SLUG}"
+    - export COMMIT_VERSION="${CI_PIPELINE_ID}-${CI_COMMIT_SHORT_SHA}
+    - METADATA_FILE=docker-metadata.json
+    - dd-docker buildx build --provenance=mode=max --build-arg SERVICE_NAME=${SERVICE_NAME} --platform linux/amd64,linux/arm64 -t "${REGISTRY_PATH}:${BRANCH_VERSION}" -t "${REGISTRY_PATH}:${COMMIT_VERSION}" --label target=build . --push --metadata-file ${METADATA_FILE}
+    - ddsign sign ${REGISTRY}/${SERVICE_NAME}:${BRANCH_VERSION} --docker-metadata-file ${METADATA_FILE}
+    - ddsign sign ${REGISTRY}/${SERVICE_NAME}:${BRANCH_VERSION} --docker-metadata-file ${METADATA_FILE}
+    - IMAGE_DIGEST=$(jq -r '."containerimage.digest"' ${METADATA_FILE})
+    - echo "IMAGE_DIGEST=${IMAGE_DIGEST}" > build.env
+    - echo "VERSION=${VERSION}" >> build.env  
+  tags: ["arm64"]
+  needs:
+    - build-app ["arm64"]
+    - build-app ["amd64"]
