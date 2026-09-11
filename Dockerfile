@@ -1,0 +1,5 @@
+ARG TARGETPLATFORM
+ARG TARGETARCH
+ARG SERVICE_IMAGE
+FROM --platform=${TARGETPLATFORM} ${SERVICE_IMAGE}
+ADD bin/git-sizer-linux-${TARGETARCH} /usr/local/bin/git-sizer
